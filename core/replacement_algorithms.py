@@ -163,7 +163,8 @@ class Optimal(ReplacementAlgorithm):
         
         pages_not_in_future = current_pages - future_pages
         if pages_not_in_future:
-            victim_page = pages_not_in_future.pop()
+            #victim_page = pages_not_in_future.pop()
+            victim_page = min(pages_not_in_future)
             for frame_num, page_num in self.frame_to_page.items():
                 if page_num == victim_page:
                     self.loaded_frames.discard(frame_num)

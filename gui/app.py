@@ -1,4 +1,4 @@
-# gui/app.py (Updated to work properly with replacement algorithms)
+# gui/app.py (Updated to remove limits - minimum 1 frame and 1 page)
 
 import customtkinter as ctk
 from tkinter import messagebox
@@ -20,9 +20,9 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.physical_memory = None
         self.active_pid = -1
         
-        # --- Configuration Variables ---
-        self.phys_frames_var = ctk.IntVar(value=16)
-        self.proc_pages_var = ctk.IntVar(value=32)
+        # --- Configuration Variables (Updated minimum values) ---
+        self.phys_frames_var = ctk.IntVar(value=4)  # Keep default at 4 but allow minimum 1
+        self.proc_pages_var = ctk.IntVar(value=8)   # Keep default at 8 but allow minimum 1
         
         # --- Layout Configuration ---
         self.grid_columnconfigure(0, weight=1)
@@ -44,17 +44,17 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         ctk.CTkLabel(panel, text="Konfigurasi Sistem", font=FONTS["heading"]).grid(
             row=0, column=0, padx=20, pady=(20, 10), sticky="w")
 
-        # Page Size
+        # Page Size - Allow any positive value
         ctk.CTkLabel(panel, text="Ukuran Halaman (KB):", font=FONTS["body"]).grid(
             row=1, column=0, padx=20, sticky="w")
-        self.page_size_entry = ctk.CTkEntry(panel, placeholder_text="Contoh: 4")
+        self.page_size_entry = ctk.CTkEntry(panel, placeholder_text="Minimal: 1, Contoh: 4")
         self.page_size_entry.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
 
-        # Physical Frames
+        # Physical Frames - Updated to allow minimum 1 frame
         ctk.CTkLabel(panel, text="Frame Fisik:", font=FONTS["body"]).grid(
             row=3, column=0, padx=20, sticky="w")
         self.phys_frames_slider = ctk.CTkSlider(
-            panel, from_=4, to=64, number_of_steps=60, 
+            panel, from_=1, to=64, number_of_steps=63,  # Changed from 4 to 1, adjusted steps
             variable=self.phys_frames_var, 
             command=lambda v: self.phys_frames_label.configure(text=f"{int(v)}")
         )
@@ -87,11 +87,11 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         ctk.CTkLabel(panel, text="Kontrol Interaktif", font=FONTS["heading"]).grid(
             row=8, column=0, padx=20, pady=(20, 10), sticky="w")
 
-        # Process Virtual Pages
+        # Process Virtual Pages - Updated to allow minimum 1 page
         ctk.CTkLabel(panel, text="Page Virtual Proses:", font=FONTS["body"]).grid(
             row=9, column=0, padx=20, sticky="w")
         self.proc_pages_slider = ctk.CTkSlider(
-            panel, from_=8, to=128, number_of_steps=120, 
+            panel, from_=1, to=128, number_of_steps=127,  # Changed from 8 to 1, adjusted steps
             variable=self.proc_pages_var, 
             command=lambda v: self.proc_pages_label.configure(text=f"{int(v)}")
         )
@@ -223,7 +223,7 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.log_textbox.tag_config("error", foreground=COLORS["page_victim"])
         
     def start_simulation(self):
-        """Initialize simulation with error handling"""
+        """Initialize simulation with error handling and updated validation"""
         try:
             num_frames = self.phys_frames_var.get()
             page_size_text = self.page_size_entry.get()
@@ -233,11 +233,18 @@ class VirtualMemorySimulatorApp(ctk.CTk):
                 return
                 
             page_size_kb = int(page_size_text)
-            if page_size_kb <= 0:
-                raise ValueError("Page size must be positive")
+            # Updated validation: minimum 1 KB instead of requiring positive
+            if page_size_kb < 1:
+                messagebox.showerror("Error", "Ukuran Halaman minimal 1 KB.")
+                return
                 
         except (ValueError, TypeError):
-            messagebox.showerror("Error", "Ukuran Halaman harus berupa angka positif.")
+            messagebox.showerror("Error", "Ukuran Halaman harus berupa angka positif (minimal 1).")
+            return
+
+        # Validate minimum frames (should be at least 1)
+        if num_frames < 1:
+            messagebox.showerror("Error", "Jumlah frame minimal 1.")
             return
 
         # Initialize physical memory
@@ -273,7 +280,7 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.update_all_visuals()
 
     def create_process(self):
-        """Create new process with validation"""
+        """Create new process with updated validation"""
         if not self.mmu:
             return
             
@@ -283,6 +290,11 @@ class VirtualMemorySimulatorApp(ctk.CTk):
             proc_size_bytes = num_pages * page_size_bytes
         except (ValueError, TypeError):
             messagebox.showerror("Error", "Ukuran Halaman harus diisi dengan angka.")
+            return
+
+        # Validate minimum pages (should be at least 1)
+        if num_pages < 1:
+            messagebox.showerror("Error", "Jumlah halaman virtual minimal 1.")
             return
 
         pid = self.mmu.create_process(proc_size_bytes, page_size_bytes)
