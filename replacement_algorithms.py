@@ -1,4 +1,4 @@
-# Fixed replacement_algorithms.py - Consistent with GUI implementation
+# core/replacement_algorithms.py
 
 from abc import ABC, abstractmethod
 from collections import deque
@@ -37,7 +37,10 @@ class ReplacementAlgorithm(ABC):
         self.loaded_frames.clear()
 
 class FIFO(ReplacementAlgorithm):
-    """FIFO implementation yang konsisten dengan GUI"""
+    """
+    Implementasi algoritma First-In, First-Out (FIFO).
+    Enhanced version dengan logging dan visualisasi yang lebih baik.
+    """
     def __init__(self, frames_limit):
         super().__init__(frames_limit)
         self.queue = deque()  # menyimpan frame_number berdasarkan urutan masuk
@@ -45,16 +48,23 @@ class FIFO(ReplacementAlgorithm):
         self.load_counter = 0  # counter untuk tracking urutan
         
     def page_accessed(self, frame_number, page_number):
-        """FIFO tidak mengubah urutan saat page hit"""
+        """
+        Pada FIFO, page hit tidak mengubah state urutan antrian.
+        Ini adalah perbedaan utama dengan LRU dimana akses mempengaruhi urutan.
+        """
+        # FIFO tidak peduli dengan akses - urutan tetap berdasarkan waktu masuk
         pass
 
     def page_loaded(self, frame_number, page_number):
-        """Menambahkan frame ke queue FIFO"""
-        # Jika frame sudah ada, hapus dari posisi lama
+        """
+        Dipanggil saat page fault untuk menambahkan frame baru ke antrian.
+        Frame ditambahkan di akhir antrian (newest).
+        """
+        # Jika frame sudah ada, hapus dari posisi lama (seharusnya tidak terjadi dalam FIFO normal)
         if frame_number in self.queue:
             self.queue.remove(frame_number)
             
-        # Tambahkan ke akhir queue sebagai yang terbaru masuk
+        # Tambahkan ke akhir antrian sebagai yang terbaru masuk
         self.queue.append(frame_number)
         self.frame_to_page[frame_number] = page_number
         self.loaded_frames.add(frame_number)
@@ -64,11 +74,14 @@ class FIFO(ReplacementAlgorithm):
         self.load_order[frame_number] = self.load_counter
 
     def select_victim(self, future_references=None):
-        """Pilih frame yang paling lama (first-in)"""
+        """
+        Pilih dan hapus frame yang pertama kali masuk (oldest).
+        Ini mengimplementasikan prinsip FIFO: First-In, First-Out.
+        """
         if not self.queue:
             return -1
             
-        # Ambil frame yang paling lama dari depan queue
+        # Ambil frame yang paling lama (first-in) dari depan antrian
         victim_frame = self.queue.popleft()
         
         # Bersihkan tracking
@@ -81,43 +94,48 @@ class FIFO(ReplacementAlgorithm):
         return victim_frame
     
     def get_queue_status(self):
-        """Utility method untuk debugging"""
+        """Utility method untuk debugging - menampilkan status antrian FIFO"""
         return {
-            'queue_order': list(self.queue),
+            'queue_order': list(self.queue),  # oldest -> newest
             'frame_to_page': dict(self.frame_to_page),
             'load_order': dict(self.load_order)
         }
 
     def reset(self):
-        """Reset semua state internal"""
+        """Reset semua state internal algoritma FIFO"""
         super().reset()
         self.queue.clear()
         self.load_order.clear()
         self.load_counter = 0
 
 class LRU(ReplacementAlgorithm):
-    """LRU implementation"""
+    """Implementasi algoritma Least Recently Used (LRU)."""
     def __init__(self, frames_limit):
         super().__init__(frames_limit)
-        self.usage_order = []  # frame paling lama di index 0
+        self.usage_order = []  # frame paling lama di index 0, paling baru di index -1
 
     def page_accessed(self, frame_number, page_number):
-        """Memindahkan frame ke posisi paling baru"""
+        """
+        Memindahkan frame yang diakses ke posisi paling baru (akhir list).
+        Ini adalah perbedaan utama dengan FIFO - LRU memperbarui urutan saat akses.
+        """
         if frame_number in self.usage_order:
             self.usage_order.remove(frame_number)
             self.usage_order.append(frame_number)
 
     def page_loaded(self, frame_number, page_number):
-        """Menambahkan frame baru ke posisi paling baru"""
+        """Menambahkan frame baru atau memperbarui posisinya jika sudah ada."""
+        # Hapus dari posisi lama jika ada
         if frame_number in self.usage_order:
             self.usage_order.remove(frame_number)
         
+        # Tambahkan ke posisi paling baru
         self.usage_order.append(frame_number)
         self.frame_to_page[frame_number] = page_number
         self.loaded_frames.add(frame_number)
 
     def select_victim(self, future_references=None):
-        """Pilih frame yang paling lama tidak digunakan"""
+        """Pilih dan hapus frame yang paling lama tidak digunakan (awal list)."""
         if not self.usage_order:
             return -1
             
@@ -132,25 +150,26 @@ class LRU(ReplacementAlgorithm):
         self.usage_order.clear()
 
 class Optimal(ReplacementAlgorithm):
-    """Optimal implementation"""
+    """Implementasi algoritma Optimal (OPT)."""
     def __init__(self, frames_limit):
         super().__init__(frames_limit)
 
     def page_accessed(self, frame_number, page_number):
-        """Optimal tidak peduli dengan akses masa lalu"""
+        """Optimal tidak peduli dengan akses masa lalu, hanya masa depan."""
         pass
 
     def page_loaded(self, frame_number, page_number):
-        """Menambahkan mapping frame ke page"""
+        """Menambahkan mapping frame ke page."""
         self.frame_to_page[frame_number] = page_number
         self.loaded_frames.add(frame_number)
 
     def select_victim(self, future_references=None):
-        """Pilih frame berdasarkan penggunaan masa depan"""
+        """Pilih frame korban berdasarkan penggunaan di masa depan."""
         if not self.loaded_frames:
             return -1
             
         if not future_references:
+            # Jika tidak ada referensi masa depan, pilih frame mana saja
             victim_frame = next(iter(self.loaded_frames))
             self.loaded_frames.discard(victim_frame)
             if victim_frame in self.frame_to_page:
@@ -161,26 +180,31 @@ class Optimal(ReplacementAlgorithm):
         future_pages = set(future_references)
         current_pages = set(self.frame_to_page.values())
         
+        # Halaman yang tidak akan digunakan lagi
         pages_not_in_future = current_pages - future_pages
         if pages_not_in_future:
+            # Pilih salah satu halaman yang tidak akan digunakan
             victim_page = pages_not_in_future.pop()
+            # Cari frame yang berisi halaman ini
             for frame_num, page_num in self.frame_to_page.items():
                 if page_num == victim_page:
                     self.loaded_frames.discard(frame_num)
                     del self.frame_to_page[frame_num]
                     return frame_num
         
-        # Jika semua halaman akan digunakan, cari yang paling jauh
+        # Jika semua halaman akan digunakan, cari yang paling jauh di masa depan
         farthest_distance = -1
         victim_frame = -1
         
         for frame_num, page_num in self.frame_to_page.items():
             try:
+                # Cari posisi pertama halaman ini di future_references
                 distance = future_references.index(page_num)
                 if distance > farthest_distance:
                     farthest_distance = distance
                     victim_frame = frame_num
             except ValueError:
+                # Halaman tidak ditemukan di future_references (seharusnya tidak terjadi)
                 victim_frame = frame_num
                 break
         
@@ -190,7 +214,7 @@ class Optimal(ReplacementAlgorithm):
                 del self.frame_to_page[victim_frame]
             return victim_frame
         
-        # Fallback
+        # Fallback jika terjadi kesalahan logika
         victim_frame = next(iter(self.loaded_frames))
         self.loaded_frames.discard(victim_frame)
         if victim_frame in self.frame_to_page:
@@ -201,37 +225,44 @@ class Optimal(ReplacementAlgorithm):
         super().reset()
 
 
-# FIXED SIMULATOR - Konsisten dengan GUI
-class FixedPageReplacementSimulator:
-    """Simulator yang konsisten dengan GUI implementation"""
+# Utility class untuk simulasi yang kompatibel dengan implementasi sebelumnya
+class PageReplacementSimulator:
+    """
+    Simulator yang menggunakan algoritma replacement dengan interface yang familiar.
+    Menggabungkan fleksibilitas arsitektur OOP dengan kemudahan penggunaan.
+    """
     
     def __init__(self, algorithm_class, frames_limit):
         self.algorithm = algorithm_class(frames_limit)
         self.frames_limit = frames_limit
-        self.current_frames = {}  # frame_number -> page_number
+        self.current_frames = {}  # frame_number -> page_number (untuk display)
+        self.next_frame_number = 0
         
     def simulate(self, page_references, verbose=True):
-        """Simulasi dengan implementasi yang konsisten"""
+        """
+        Menjalankan simulasi dengan interface yang mirip implementasi sebelumnya.
+        """
         page_faults = 0
         hits = 0
         results = []
         
         if verbose:
-            print(f"=== FIXED SIMULASI ALGORITMA {self.algorithm.__class__.__name__} ===")
+            print(f"=== SIMULASI ALGORITMA {self.algorithm.__class__.__name__} ===")
             print(f"Frame Size: {self.frames_limit}")
             print(f"Page References: {page_references}")
             print(f"Total References: {len(page_references)}")
             print("\n" + "="*80)
             
+            # Header tabel
             header = f"{'Ref':<4} {'Page':<5} "
             for i in range(self.frames_limit):
                 header += f"{'Frame'+str(i):<8} "
-            header += f"{'Result':<8} {'Action':<30}"
+            header += f"{'Result':<8} {'Action':<25}"
             print(header)
             print("-" * len(header))
         
         for ref_num, page in enumerate(page_references, 1):
-            # Check if page is already in frames
+            # Cek apakah halaman sudah ada di frame
             page_in_frame = page in self.current_frames.values()
             
             if page_in_frame:
@@ -251,9 +282,9 @@ class FixedPageReplacementSimulator:
                 result_type = "FAULT"
                 
                 if len(self.current_frames) < self.frames_limit:
-                    # FIXED: Use consistent frame allocation like GUI
-                    available_frames = set(range(self.frames_limit)) - set(self.current_frames.keys())
-                    frame_num = min(available_frames)  # Consistent with GUI
+                    # Ada frame kosong
+                    frame_num = self.next_frame_number
+                    self.next_frame_number += 1
                     
                     self.current_frames[frame_num] = page
                     self.algorithm.page_loaded(frame_num, page)
@@ -281,7 +312,7 @@ class FixedPageReplacementSimulator:
                         row += f"{self.current_frames[i]:<8} "
                     else:
                         row += f"{'-':<8} "
-                row += f"{result_type:<8} {action:<30}"
+                row += f"{result_type:<8} {action:<25}"
                 print(row)
             
             # Simpan hasil
@@ -317,37 +348,54 @@ class FixedPageReplacementSimulator:
         }
     
     def _find_frame_with_page(self, page):
-        """Helper method untuk menemukan frame yang berisi halaman tertentu"""
+        """Helper method untuk menemukan frame yang berisi halaman tertentu."""
         for frame_num, page_num in self.current_frames.items():
             if page_num == page:
                 return frame_num
         return None
     
     def reset(self):
-        """Reset simulator dan algorithm"""
+        """Reset simulator dan algorithm."""
         self.algorithm.reset()
         self.current_frames.clear()
+        self.next_frame_number = 0
 
 
-def test_consistency():
-    """Test konsistensi antara implementasi lama dan baru"""
-    print("="*100)
-    print("TESTING CONSISTENCY BETWEEN OLD AND NEW IMPLEMENTATIONS")
-    print("="*100)
-    
-    # Test dengan reference string yang sama
-    ref_string = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 1, 5, 7, 8, 3, 5]
+# Contoh penggunaan yang kompatibel dengan implementasi sebelumnya
+def main():
+    """Demonstrasi penggunaan dengan data yang sama seperti sebelumnya."""
+    page_references = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 1, 5, 7, 8, 3, 5]
     frames_limit = 4
     
-    # Test dengan fixed simulator
-    print("Testing FIXED Simulator:")
-    fixed_sim = FixedPageReplacementSimulator(FIFO, frames_limit)
-    fixed_result = fixed_sim.simulate(ref_string)
+    # Test FIFO
+    print("Testing Enhanced FIFO Algorithm:")
+    fifo_sim = PageReplacementSimulator(FIFO, frames_limit)
+    fifo_result = fifo_sim.simulate(page_references)
     
-    print("\nTesting dengan reference string dari GUI (simulasi):")
-    gui_ref_string = [0, 1, 2, 3, 0, 1, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1]
-    gui_sim = FixedPageReplacementSimulator(FIFO, 4)
-    gui_result = gui_sim.simulate(gui_ref_string)
+    # Test LRU untuk perbandingan
+    print("\n" + "="*80)
+    print("Testing LRU Algorithm:")
+    lru_sim = PageReplacementSimulator(LRU, frames_limit)
+    lru_result = lru_sim.simulate(page_references)
+    
+    # Test Optimal untuk perbandingan
+    print("\n" + "="*80)
+    print("Testing Optimal Algorithm:")
+    opt_sim = PageReplacementSimulator(Optimal, frames_limit)
+    opt_result = opt_sim.simulate(page_references)
+    
+    # Ringkasan perbandingan
+    print("\n" + "="*80)
+    print("=== PERBANDINGAN ALGORITMA ===")
+    algorithms = [
+        ("FIFO", fifo_result),
+        ("LRU", lru_result), 
+        ("Optimal", opt_result)
+    ]
+    
+    print(f"{'Algorithm':<10} {'Page Faults':<12} {'Hits':<6} {'Hit Rate':<10}")
+    print("-" * 45)
+    for name, result in algorithms:
+        print(f"{name:<10} {result['page_faults']:<12} {result['hits']:<6} {result['hit_rate']:<10.2f}%")
 
-if __name__ == "__main__":
-    test_consistency()
+
