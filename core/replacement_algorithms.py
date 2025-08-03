@@ -211,3 +211,83 @@ class Optimal(ReplacementAlgorithm):
     def reset(self):
         """Reset data internal algoritma"""
         super().reset()
+
+
+# Fungsi pengetesan dan validasi algoritma
+def test_algorithms():
+    """
+    Fungsi untuk menguji dan membandingkan performa ketiga algoritma
+    Menggunakan reference string yang sudah diketahui hasilnya untuk validasi
+    """
+    print("=== Pengetesan Algoritma Penggantian Halaman ===")
+    
+    # Parameter pengetesan
+    num_frames = 3
+    reference_string = [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1]
+    
+    algorithms = {
+        'FIFO': FIFO(num_frames),
+        'LRU': LRU(num_frames),
+        'Optimal': Optimal(num_frames)
+    }
+    
+    print(f"Reference String: {reference_string}")
+    print(f"Jumlah Frame: {num_frames}")
+    print("-" * 60)
+    
+    for algo_name, algorithm in algorithms.items():
+        print(f"\n{algo_name} Algorithm:")
+        page_faults = 0
+        loaded_pages = set()
+        
+        for i, page in enumerate(reference_string):
+            # Simulasi akses halaman
+            if page in loaded_pages:
+                # Page hit
+                algorithm.page_accessed(None, page)  # Frame number tidak relevan untuk testing
+                status = "HIT"
+            else:
+                # Page fault
+                page_faults += 1
+                if len(loaded_pages) < num_frames:
+                    # Ada frame kosong
+                    frame_num = len(loaded_pages)
+                    algorithm.page_loaded(frame_num, page)
+                    loaded_pages.add(page)
+                    status = "FAULT (load)"
+                else:
+                    # Perlu penggantian
+                    future_refs = reference_string[i+1:] if algo_name == 'Optimal' else None
+                    victim_frame = algorithm.select_victim(future_refs)
+                    
+                    # Hapus halaman lama dan tambah halaman baru
+                    old_page = None
+                    for p in loaded_pages:
+                        if algorithm.frame_to_page.get(victim_frame) == p:
+                            old_page = p
+                            break
+                    
+                    if old_page:
+                        loaded_pages.remove(old_page)
+                    loaded_pages.add(page)
+                    algorithm.page_loaded(victim_frame, page)
+                    status = f"FAULT (replace {old_page})" if old_page else "FAULT (replace)"
+            
+            print(f"  Step {i+1:2d}: Page {page} -> {status}")
+        
+        hit_ratio = ((len(reference_string) - page_faults) / len(reference_string)) * 100
+        print(f"  Total Page Faults: {page_faults}")
+        print(f"  Hit Ratio: {hit_ratio:.1f}%")
+        
+        # Reset algoritma untuk pengetesan berikutnya
+        algorithm.reset()
+        
+    print("\n" + "=" * 60)
+
+
+if __name__ == "__main__":
+    """
+    Menjalankan pengetesan ketika file dieksekusi langsung
+    Berguna untuk validasi implementasi algoritma
+    """
+    test_algorithms()
