@@ -81,7 +81,8 @@ class MemoryManagementUnit:
         self.replacement_algorithm = replacement_algorithm
         self.processes = {}                         # Daftar semua proses aktif
         self.next_pid = 0                          # Counter untuk PID berikutnya
-        self.stats = {"hits": 0, "faults": 0}     # Statistik performa sistem
+        self.stats = {"hits": 0, "faults": 0, "total_time": 0}     # Statistik performa sistem
+        self.last_access_time = None               # Waktu akses terakhir
 
     def create_process(self, virtual_size, page_size):
         """
@@ -119,9 +120,19 @@ class MemoryManagementUnit:
             future_references: daftar referensi masa depan untuk algoritma optimal
         Return: (pesan_status, tipe_akses)
         """
+        import time
+        start_time = time.time()
+        
         page_size = self.physical_memory.page_size
         page_number = virtual_address // page_size
-        return self.access_page(pid, page_number, future_references)
+        result = self.access_page(pid, page_number, future_references)
+        
+        end_time = time.time()
+        execution_time = (end_time - start_time) * 1000  # Convert to milliseconds
+        self.stats["total_time"] += execution_time
+        self.last_access_time = execution_time
+        
+        return result
 
     def access_page(self, pid, page_number, future_references=None):
         """
@@ -194,16 +205,19 @@ class MemoryManagementUnit:
         """Mengambil statistik performa sistem (hit ratio, jumlah hit/fault)"""
         total = self.stats["hits"] + self.stats["faults"]
         if total == 0:
-            return {"hits": 0, "faults": 0, "hit_ratio": 0}
+            return {"hits": 0, "faults": 0, "hit_ratio": 0, "total_time": 0, "last_time": 0}
         return {
             "hits": self.stats["hits"],
             "faults": self.stats["faults"],
-            "hit_ratio": (self.stats["hits"] / total) * 100
+            "hit_ratio": (self.stats["hits"] / total) * 100,
+            "total_time": self.stats["total_time"],
+            "last_time": self.last_access_time if self.last_access_time is not None else 0
         }
     
     def reset(self):
         """Reset sistem ke kondisi awal - hapus semua proses dan statistik"""
-        self.stats = {"hits": 0, "faults": 0}
+        self.stats = {"hits": 0, "faults": 0, "total_time": 0}
+        self.last_access_time = None
         pids = list(self.processes.keys())
         for pid in pids:
             process = self.processes[pid]

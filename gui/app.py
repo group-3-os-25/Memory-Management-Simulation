@@ -183,6 +183,8 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.hits_label.configure(text=f"Hits: {stats['hits']}")
         self.faults_label.configure(text=f"Page Faults: {stats['faults']}")
         self.hit_ratio_label.configure(text=f"Hit Ratio: {stats['hit_ratio']:.2f}%")
+        self.total_time_label.configure(text=f"Total Time: {stats['total_time']:.2f} ms")
+        self.last_time_label.configure(text=f"Last Op Time: {stats['last_time']:.2f} ms")
 
     # Sisa fungsi lainnya (create_log_panel, _log, start_simulation, create_process, dll.)
     # tidak perlu diubah. Salin semua fungsi tersebut dari jawaban sebelumnya.
@@ -205,11 +207,18 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.faults_label.pack(anchor="w")
         self.hit_ratio_label = ctk.CTkLabel(stats_frame, text="Hit Ratio: 0.00%", font=FONTS["body"])
         self.hit_ratio_label.pack(anchor="w")
+        self.total_time_label = ctk.CTkLabel(stats_frame, text="Total Time: 0.00 ms", font=FONTS["body"])
+        self.total_time_label.pack(anchor="w")
+        self.last_time_label = ctk.CTkLabel(stats_frame, text="Last Op Time: 0.00 ms", font=FONTS["body"])
+        self.last_time_label.pack(anchor="w")
 
     def _log(self, message, status=None):
+        import datetime
+        current_time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        
         self.log_textbox.configure(state="normal")
         start_index = self.log_textbox.index("end-1c")
-        self.log_textbox.insert("end", f"{message}\n")
+        self.log_textbox.insert("end", f"[{current_time}] {message}\n")
         end_index = self.log_textbox.index("end-2c")
         if status:
             self.log_textbox.tag_add(status, start_index, end_index)

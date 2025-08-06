@@ -118,7 +118,8 @@ class Optimal(ReplacementAlgorithm):
             pages_not_in_future = pages_in_ram - set(future_references)
 
             if pages_not_in_future:
-                victim_page = pages_not_in_future.pop()
+                #victim_page = pages_not_in_future.pop()
+                victim_page = min(pages_not_in_future)
             else:
                 farthest_distance = -1
                 victim_page = -1
