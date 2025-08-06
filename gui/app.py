@@ -47,8 +47,8 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.page_size_entry.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         ctk.CTkLabel(panel, text="Frame Fisik:", font=FONTS["body"]).grid(row=3, column=0, padx=20, sticky="w")
-        self.phys_frames_slider = ctk.CTkSlider(panel, from_=4, to=64, number_of_steps=60, variable=self.phys_frames_var, command=lambda v: self.phys_frames_label.configure(text=f"{int(v)}"))
-        self.phys_frames_slider.grid(row=4, column=0, padx=20, pady=(0, 5), sticky="ew")
+        self.phys_frames_slider = ctk.CTkSlider(panel, from_=3, to=64, number_of_steps=60, variable=self.phys_frames_var, command=lambda v: self.phys_frames_label.configure(text=f"{int(v)}"))
+        self.phys_frames_slider.grid(row=3, column=0, padx=20, pady=(0, 5), sticky="ew")
         self.phys_frames_label = ctk.CTkLabel(panel, text=f"{self.phys_frames_var.get()}", font=FONTS["body_bold"], text_color=COLORS["primary"])
         self.phys_frames_label.grid(row=3, column=0, padx=20, sticky="e")
 

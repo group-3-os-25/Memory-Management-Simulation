@@ -1,31 +1,27 @@
 # Virtual Memory Simulator
 
 ## Deskripsi
-Simulator sistem manajemen memori virtual dengan paging yang dikembangkan untuk mata kuliah Sistem Operasi. Aplikasi ini mensimulasikan cara kerja Memory Management Unit (MMU) dalam menangani translasi alamat virtual ke alamat fisik, page fault, dan algoritma penggantian halaman.
+Simulator sistem manajemen memori virtual dengan paging yang dikembangkan untuk mata kuliah Sistem Operasi. Aplikasi ini mensimulasikan cara kerja Memory Management Unit (MMU) dalam menangani translasi alamat virtual ke alamat fisik, page fault, dan algoritma penggantian halaman dengan antarmuka grafis interaktif untuk membantu proses pembelajaran.
 
 ## Fitur Utama
-- **Simulasi Memori Virtual**: Implementasi lengkap sistem paging dengan page table
+- **Simulasi Memori Virtual**: Implementasi lengkap sistem paging dengan page table dan translasi alamat
 - **Algoritma Penggantian Halaman**: 
   - FIFO (First-In, First-Out)
   - LRU (Least Recently Used)
-  - Optimal (Belady's Algorithm)
-- **Interface Grafis**: GUI interaktif menggunakan CustomTkinter
-- **Visualisasi Real-time**: Tampilan visual ruang alamat virtual dan memori fisik
-- **Statistik Performa**: Monitoring hit ratio dan page fault
-- **Mode Eksekusi**: Akses alamat individual atau batch reference string
+- **Interface Grafis**: GUI interaktif menggunakan CustomTkinter dengan visualisasi real-time
+- **Visualisasi Komprehensif**: 
+  - Tampilan Page Table
+  - Ruang Alamat Virtual (Virtual Address Space)
+  - Memori Fisik (Physical Memory)
+- **Analisis Performa Mendalam**: 
+  - Hit Ratio dan Page Fault tracking
+  - Waktu eksekusi dan throughput
+  - Penggunaan memori puncak
+- **Mode Eksekusi Fleksibel**: Akses alamat individual atau batch reference string
+- **Manajemen Multi-Proses**: Dukungan untuk beberapa proses dengan context switching
 
 ## Struktur Proyek
-```
-virtual-memory-simulator/
-├── main.py                     # Entry point aplikasi
-├── README.md                   # Dokumentasi proyek
-├── core/
-│   ├── memory_manager.py       # Implementasi MMU dan manajemen memori
-│   └── replacement_algorithms.py # Algoritma penggantian halaman
-└── gui/
-    ├── app.py                  # Aplikasi GUI utama
-    └── theme.py                # Konfigurasi tema dan styling
-```
+![alt text](memory_management.png)
 
 ## Requirements
 ```
@@ -47,130 +43,165 @@ tkinter (built-in dengan Python)
 ## Cara Penggunaan
 
 ### 1. Konfigurasi Sistem
-- **Ukuran Halaman**: Masukkan ukuran halaman dalam KB (contoh: 4)
-- **Frame Fisik**: Atur jumlah frame di memori fisik (4-64 frame)
-- **Algoritma**: Pilih algoritma penggantian (FIFO/LRU/Optimal)
-- Klik **"Mulai / Reset Simulasi"**
+- **Frame Fisik**: Atur jumlah frame di memori fisik menggunakan slider (4-64 frame)
+- **Algoritma**: Pilih algoritma penggantian (FIFO/LRU) melalui radio button
+- Klik **"Mulai / Reset Simulasi"** untuk menginisialisasi sistem
 
 ### 2. Membuat Proses
-- Atur jumlah halaman virtual untuk proses (8-128 halaman)
+- Atur jumlah halaman virtual untuk proses menggunakan slider
 - Klik **"Buat Proses"** untuk membuat proses baru
+- Pilih proses aktif dari dropdown list untuk context switching
 
 ### 3. Akses Memori
 #### Akses Individual:
 - Masukkan alamat virtual dalam byte (contoh: 8192)
-- Klik **"Akses Alamat"**
+- Klik **"Akses Alamat"** untuk melihat proses translasi
 
 #### Batch Reference String:
 - Masukkan string referensi halaman (contoh: 0,1,2,3,0,1,4,2,1,0,3,2)
-- Klik **"Jalankan String Referensi"**
+- Klik **"Jalankan String Referensi"** untuk eksekusi batch dengan analisis performa
 
-### 4. Monitoring
-- **Area Log**: Menampilkan aktivitas sistem secara real-time
-- **Visualisasi**: Melihat status ruang alamat virtual dan memori fisik
-- **Statistik**: Monitoring hits, page faults, dan hit ratio
+### 4. Monitoring dan Visualisasi
+- **Panel Log**: Menampilkan aktivitas sistem secara real-time dengan detail operasi
+- **Page Table**: Visualisasi mapping halaman virtual ke frame fisik
+- **Virtual Address Space**: Status semua halaman proses (di memori/disk)
+- **Physical Memory**: Status frame dan alokasi memori
+- **Statistik Performa**: 
+  - Page Hits & Page Faults
+  - Hit Ratio (%)
+  - Waktu Eksekusi (ms)
+  - Penggunaan Memori Puncak (MB)
+  - Throughput (referensi per detik)
 
 ## Algoritma yang Diimplementasikan
 
 ### FIFO (First-In, First-Out)
-- Mengganti halaman yang paling lama berada di memori
-- Sederhana namun tidak optimal
-- Dapat mengalami Belady's Anomaly
+- **Prinsip**: Mengganti halaman yang pertama kali masuk ke memori (paling lama berada di memori)
+- **Implementasi**: Menggunakan struktur data `deque` untuk efisiensi O(1)
+- **Keuntungan**: Implementasi sederhana, overhead komputasi rendah
+- **Kerugian**: Performa seringkali buruk, rentan terhadap Anomali Belady
+- **Use Case**: Sistem dengan prioritas pada kesederhanaan dan kecepatan
 
 ### LRU (Least Recently Used)
-- Mengganti halaman yang paling lama tidak digunakan
-- Performa lebih baik dari FIFO
-- Mempertimbangkan pola akses masa lalu
+- **Prinsip**: Mengganti halaman yang paling lama tidak diakses berdasarkan lokalitas referensi
+- **Implementasi**: Menggunakan `usage_order` list untuk tracking penggunaan
+- **Keuntungan**: Performa optimal untuk sebagian besar pola akses, tidak mengalami Anomali Belady
+- **Kerugian**: Overhead lebih tinggi karena tracking setiap akses memori
+- **Use Case**: Sistem tujuan umum dengan beban kerja yang memiliki lokalitas referensi
 
-### Optimal (Belady's Algorithm)
-- Mengganti halaman yang akan digunakan paling jauh di masa depan
-- Performa optimal secara teoritis
-- Membutuhkan pengetahuan referensi masa depan (hanya untuk simulasi)
+## Arsitektur Sistem
 
-## Contoh Penggunaan
+### Komponen Inti:
+1. **Memory Management Unit (MMU)**: 
+   - Translasi alamat virtual ke fisik
+   - Penanganan page fault
+   - Koordinasi dengan algoritma penggantian
 
-### Skenario Testing:
-1. **Konfigurasi**: 4KB page size, 3 frames, algoritma LRU
-2. **Proses**: 16 halaman virtual
-3. **Reference String**: `7,0,1,2,0,3,0,4,2,3,0,3,2,1,2,0,1,7,0,1`
+2. **Physical Memory**: 
+   - Manajemen frame fisik
+   - Alokasi dan dealokasi frame
+   - Tracking konten setiap frame
 
-### Expected Output:
-- Sistem akan menampilkan setiap akses memori
-- Page hit/fault untuk setiap referensi
-- Visualisasi perubahan state memori
-- Statistik akhir performa
+3. **Process & Page Table**: 
+   - Representasi proses dengan page table
+   - Page Table Entry (PTE) dengan valid bit dan frame number
 
-## Testing dan Validasi
+4. **Replacement Algorithm Module**: 
+   - Antarmuka standar untuk algoritma
+   - Implementasi FIFO dan LRU yang dapat dipertukarkan
 
-### Testing Algoritma:
-```bash
-python core/replacement_algorithms.py
-```
-Menjalankan pengetesan otomatis untuk memvalidasi implementasi algoritma.
+## Skenario Testing yang Direkomendasikan
 
-### Manual Testing:
-- Gunakan reference string yang sudah diketahui hasilnya
-- Bandingkan output dengan perhitungan manual
-- Verifikasi hit ratio dan jumlah page fault
+### 1. Pola Sekuensial (Test Case 1):
+- **Reference String**: `0,1,2,3,4,5,6,7,8,9`
+- **Tujuan**: Menguji kinerja tanpa lokalitas referensi
+- **Expected**: Kedua algoritma memiliki performa identik dan buruk
 
-## Fitur Visualisasi
+### 2. Pola Lokalitas Tinggi (Test Case 2):
+- **Reference String**: `0,1,2,0,1,3,0,1,4,0,1,5,0,1`
+- **Tujuan**: Simulasi program dengan loop
+- **Expected**: LRU signifikan lebih unggul dari FIFO
 
-### Ruang Alamat Virtual:
-- Menampilkan semua halaman virtual proses aktif
-- Indikator halaman yang ada di memori vs di disk
-- Pemetaan ke frame fisik
+### 3. Pola Acak Standar (Test Case 3):
+- **Reference String**: `7,0,1,2,0,3,0,4,2,3,0,3,2`
+- **Tujuan**: Perbandingan pada beban kerja umum
+- **Expected**: LRU lebih baik dengan memanfaatkan lokalitas parsial
 
-### Memori Fisik:
-- Status setiap frame (kosong/terisi)
-- Informasi proses dan halaman yang menempati frame
-- Counter frame yang tersedia
+### 4. Anomali Belady (Test Case 4):
+- **Reference String**: `1,2,3,4,1,2,5,1,2,3,4,5`
+- **Tujuan**: Membuktikan kerentanan FIFO terhadap anomali
+- **Expected**: FIFO menunjukkan anomali, LRU konsisten
 
-### Color Coding:
-- 🟢 **Hijau-biru (Teal)**: Page Hit
-- 🟠 **Oranye**: Page Fault (frame kosong)
-- 🔴 **Merah-oranye**: Page Fault (penggantian)
+## Color Coding Visualisasi
+- 🟢 **Hijau**: Page Hit
+- 🟠 **Oranye**: Page Fault dengan frame kosong
+- 🔴 **Merah**: Page Fault dengan penggantian
 - 🔵 **Biru**: Frame terisi / halaman valid
 - ⚫ **Abu-abu**: Frame kosong / halaman di disk
+- **Warna Unik**: Setiap proses memiliki warna berbeda
 
 ## Troubleshooting
 
-### Error "Ukuran Halaman harus diisi"
-- Pastikan field ukuran halaman terisi dengan angka positif
-
 ### Error "Process ID tidak ditemukan"
 - Buat proses terlebih dahulu sebelum mengakses memori
+- Pastikan proses dipilih dari dropdown list
 
 ### Error "Format String Referensi tidak valid"
-- Gunakan format: `1,2,3,4` (dipisah koma, tanpa spasi)
-- Pastikan semua nilai adalah angka
+- Gunakan format: `1,2,3,4` (dipisah koma)
+- Pastikan semua nilai adalah nomor halaman yang valid
 
 ### GUI Tidak Responsive
 - Tutup dan restart aplikasi
-- Pastikan sistem memiliki cukup RAM
+- Reduce ukuran reference string untuk testing awal
 
-## Pengembangan
+### Hasil Tidak Sesuai Ekspektasi
+- Periksa konfigurasi jumlah frame dan ukuran halaman
+- Verifikasi algoritma yang dipilih
+- Pastikan proses yang benar sedang aktif
 
-### Struktur Kelas Utama:
-- `MemoryManagementUnit`: Core MMU functionality
-- `PhysicalMemory`: Manajemen frame fisik
-- `Process`: Representasi proses dengan page table
-- `ReplacementAlgorithm`: Base class untuk algoritma
+## Pengembangan dan Ekstensibilitas
 
 ### Menambah Algoritma Baru:
-1. Inherit dari `ReplacementAlgorithm`
-2. Implement required methods: `page_loaded`, `select_victim`, `reset`
-3. Tambahkan ke `algo_map` di `app.py`
+1. Inherit dari `ReplacementAlgorithm` base class
+2. Implement method: `page_loaded`, `select_victim`, `page_accessed`, `reset`
+3. Tambahkan ke algoritma mapping di GUI
+
+### Struktur Data Kunci:
+- **PageTableEntry**: `frame_number`, `valid` bit
+- **Process**: `pid`, `page_table`, `num_pages`
+- **PhysicalMemory**: `frames`, `free_frames`, tracking
+- **FIFO**: `queue` menggunakan deque
+- **LRU**: `usage_order` menggunakan list
+
+## Analisis Performa Trade-off
+
+Berdasarkan eksperimen pada Test Case 2 (Pola Lokalitas Tinggi):
+
+| Metrik | FIFO | LRU | Analisis |
+|--------|------|-----|----------|
+| Page Faults | 8 | 6 | LRU 25% lebih efektif |
+| Hit Ratio | 42.9% | 57.1% | LRU lebih unggul |
+| Waktu Eksekusi | 2947.42 ms | 2999.01 ms | FIFO 1.7% lebih cepat |
+| Puncak Memori | 0.5572 MB | 0.5192 MB | LRU lebih hemat |
+| Throughput | 4.07 ref/s | 4.00 ref/s | FIFO sedikit lebih tinggi |
+
+**Kesimpulan**: LRU lebih efektif dalam mengurangi page fault tetapi memiliki overhead komputasi yang lebih tinggi.
 
 ## Kontributor
-Kelompok 3 - Mata Kuliah Sistem Operasi
-- Akhyar Rasyid Asy-syifa (2306241682)
-- Fadhlurohman Dzaki (2306202132)
-- Hadyan Fachri (2306245030)
-- Kevin Yehezkiel Manurung (2206826974)
-- Muhammad Ruzbehan Baqli (2306245062)
+Kelompok 3 - Mata Kuliah Sistem Operasi:
+1. Fadhlurohman Dzaki (2306202132)
+2. Hadyan Fachri (2306245030)
+3. Akhyar Rasyid As (2306241682)
+4. Kevin Yezekhiel Manurung (2206826974)
+5. Muhammad Ruzbehan Baqli (2306245062)
 
-## Lisensi
-Proyek ini dibuat untuk keperluan edukasi mata kuliah Sistem Operasi.
+## Referensi Akademik
+- Arpaci-Dusseau, R. H., & Arpaci-Dusseau, A. C. (2024). Operating Systems: Three Easy Pieces
+- Silberschatz, A., Galvin, P. B., & Gagne, G. (2018). Operating System Concepts (10th ed.)
+- Tanenbaum, A. S., & Bos, H. (2015). Modern Operating Systems (4th ed.)
+
+## Kata Kunci
+Memori Virtual, Algoritma Penggantian Halaman, FIFO, LRU, Page Fault, Simulator, Sistem Operasi, Analisis Kinerja, Lokalitas Referensi, MMU, Paging.
 
 ---
-**Catatan**: Simulator ini dibuat untuk tujuan pembelajaran dan tidak mencerminkan kompleksitas penuh sistem manajemen memori di sistem operasi nyata.
+**Catatan**: Simulator ini dibuat untuk tujuan pembelajaran konsep memori virtual dan tidak mencerminkan kompleksitas penuh sistem manajemen memori di sistem operasi production. Fokus utama adalah pada pemahaman algoritma penggantian halaman dan visualisasi interaktif proses manajemen memori.
