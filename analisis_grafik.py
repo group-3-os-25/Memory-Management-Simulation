@@ -1,14 +1,14 @@
 # analisis_grafik.py
 # Skrip ini untuk membuat visualisasi data dari hasil simulator memori virtual.
-# Data yang digunakan di sini diambil langsung dari tabel-tabel di Bab 6
-# makalah Anda ("Hasil Eksperimen dan Analisis Kinerja").
+# Data yang digunakan di sini telah disesuaikan dengan tabel-tabel di dokumen
+# "Hasil Eksperimen dan Analisis Kinerja (Final)".
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 # --- GRAFIK 1: Analisis Anomali Belady & Perbandingan Kinerja ---
 # TUJUAN: Menunjukkan bagaimana jumlah page fault berubah saat jumlah frame ditambah.
-# DATA DARI: Tabel hasil untuk "Test Case 4: Anomali Belady & Pola Siklis".
+# DATA DARI: Tabel hasil untuk "Test Case 5: Anomali Belady & Pola Siklis".
 
 # Data yang dikumpulkan dari simulator Anda
 frames = [3, 4]      # Jumlah frame yang diuji
@@ -21,7 +21,7 @@ plt.plot(frames, faults_fifo, marker='o', linestyle='-', color='#E76F51', label=
 plt.plot(frames, faults_lru, marker='s', linestyle='--', color='#2A9D8F', label='LRU', linewidth=2, markersize=8)
 
 # Memberi judul dan label
-plt.title('Perbandingan Page Faults vs. Jumlah Frame\n(Test Case 4: Anomali Belady & Pola Siklis)', fontsize=16)
+plt.title('Perbandingan Page Faults vs. Jumlah Frame\n(Test Case 5: Anomali Belady & Pola Siklis)', fontsize=16)
 plt.xlabel('Jumlah Frame Fisik', fontsize=12)
 plt.ylabel('Total Page Faults', fontsize=12)
 plt.xticks(frames) # Memastikan sumbu-x hanya menampilkan frame yang diuji
@@ -35,13 +35,14 @@ print("Grafik 'grafik_anomali_belady.png' berhasil disimpan.")
 
 # --- GRAFIK 2: Perbandingan Hit Ratio pada Beban Kerja Lokalitas ---
 # TUJUAN: Menunjukkan algoritma mana yang lebih baik untuk program dengan lokalitas.
-# DATA DARI: Tabel hasil untuk "Test Case 2: Pola Lokalitas Tinggi" dengan 4 Frame.
+# DATA DARI: Tabel hasil untuk "Test Case 2: Pola Lokalitas Tinggi (Revisi)" dengan 4 Frame.
 
 # Data yang dikumpulkan dari simulator Anda
 algorithms = ['FIFO', 'LRU']
-total_akses = 12 # Total halaman dalam reference string Test Case 2
+# Total akses untuk Test Case 2 adalah 14
+total_akses = 14
 
-# Hasil page faults untuk FIFO dan LRU dari tabel
+# Hasil page faults untuk FIFO dan LRU dari tabel Test Case 2
 page_faults_locality = [8, 6]
 
 # Hitung hit ratio secara otomatis dari data faults
@@ -52,7 +53,7 @@ plt.figure(figsize=(8, 6))
 bars = plt.bar(algorithms, hit_ratio, color=['#3A7EBF', '#F4A261'])
 
 # Memberi judul dan label
-plt.title('Perbandingan Hit Ratio pada Beban Kerja Lokalitas Tinggi\n(Konfigurasi 4 Frame)', fontsize=16)
+plt.title('Perbandingan Hit Ratio pada Beban Kerja Lokalitas Tinggi\n(Test Case 2, Konfigurasi 4 Frame)', fontsize=16)
 plt.xlabel('Algoritma Penggantian Halaman', fontsize=12)
 plt.ylabel('Hit Ratio (%)', fontsize=12)
 plt.ylim(0, 100) # Mengatur batas sumbu-y dari 0 hingga 100
