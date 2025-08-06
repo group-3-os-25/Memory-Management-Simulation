@@ -1,7 +1,7 @@
 # core/replacement_algorithms.py
 """
 Implementasi Algoritma Penggantian Halaman
-Menyediakan tiga algoritma utama: FIFO, LRU, dan Optimal
+Menyediakan dua algoritma utama: FIFO dan LRU
 """
 from abc import ABC, abstractmethod
 from collections import deque
@@ -23,7 +23,7 @@ class ReplacementAlgorithm(ABC):
         pass
 
     @abstractmethod
-    def select_victim(self, future_references=None):
+    def select_victim(self):
         """Memilih frame korban untuk diganti."""
         pass
     
@@ -51,7 +51,7 @@ class FIFO(ReplacementAlgorithm):
         self.frame_to_page[frame_number] = page_number
         self.loaded_frames.add(frame_number)
 
-    def select_victim(self, future_references=None):
+    def select_victim(self):
         if not self.queue: return -1
         victim_frame = self.queue.popleft()
         return victim_frame
@@ -83,7 +83,7 @@ class LRU(ReplacementAlgorithm):
         self.frame_to_page[frame_number] = page_number
         self.loaded_frames.add(frame_number)
 
-    def select_victim(self, future_references=None):
+    def select_victim(self):
         if not self.usage_order: return -1
         victim_frame = self.usage_order.pop(0)
         return victim_frame
@@ -97,58 +97,10 @@ class LRU(ReplacementAlgorithm):
         super().reset()
         self.usage_order.clear()
 
-class Optimal(ReplacementAlgorithm):
-    """Algoritma Optimal (OPT)."""
-    def __init__(self, frames_limit):
-        super().__init__(frames_limit)
-
-    def page_loaded(self, frame_number, page_number):
-        self.frame_to_page[frame_number] = page_number
-        self.loaded_frames.add(frame_number)
-
-    def select_victim(self, future_references=None):
-        if not self.loaded_frames: return -1
-        
-        victim_frame = -1
-        
-        if not future_references:
-            victim_frame = next(iter(self.loaded_frames))
-        else:
-            pages_in_ram = {self.frame_to_page.get(f) for f in self.loaded_frames if self.frame_to_page.get(f) is not None}
-            pages_not_in_future = pages_in_ram - set(future_references)
-
-            if pages_not_in_future:
-                #victim_page = pages_not_in_future.pop()
-                victim_page = min(pages_not_in_future)
-            else:
-                farthest_distance = -1
-                victim_page = -1
-                for page_num in pages_in_ram:
-                    try:
-                        distance = future_references.index(page_num)
-                        if distance > farthest_distance:
-                            farthest_distance = distance
-                            victim_page = page_num
-                    except ValueError:
-                        continue
-                if victim_page == -1: # Fallback
-                     victim_page = next(iter(pages_in_ram))
-
-            for f_num, p_num in self.frame_to_page.items():
-                if p_num == victim_page:
-                    victim_frame = f_num
-                    break
-        
-        return victim_frame
-
-    def reset(self):
-        super().reset()
-
-
 # Fungsi pengetesan dan validasi algoritma
 def test_algorithms():
     """
-    Fungsi untuk menguji dan membandingkan performa ketiga algoritma
+    Fungsi untuk menguji dan membandingkan performa algoritma
     Menggunakan reference string yang sudah diketahui hasilnya untuk validasi
     """
     print("=== Pengetesan Algoritma Penggantian Halaman ===")
@@ -159,8 +111,7 @@ def test_algorithms():
     
     algorithms = {
         'FIFO': FIFO(num_frames),
-        'LRU': LRU(num_frames),
-        'Optimal': Optimal(num_frames)
+        'LRU': LRU(num_frames)
     }
     
     print(f"Reference String: {reference_string}")
@@ -189,8 +140,7 @@ def test_algorithms():
                     status = "FAULT (load)"
                 else:
                     # Perlu penggantian
-                    future_refs = reference_string[i+1:] if algo_name == 'Optimal' else None
-                    victim_frame = algorithm.select_victim(future_refs)
+                    victim_frame = algorithm.select_victim()
                     
                     # Hapus halaman lama dan tambah halaman baru
                     old_page = None

@@ -7,7 +7,7 @@ import customtkinter as ctk
 from tkinter import ttk, messagebox
 from .theme import COLORS, FONTS
 from core.memory_manager import PhysicalMemory, MemoryManagementUnit
-from core.replacement_algorithms import FIFO, LRU, Optimal
+from core.replacement_algorithms import FIFO, LRU
 
 class VirtualMemorySimulatorApp(ctk.CTk):
     def __init__(self):
@@ -53,7 +53,6 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.algo_var = ctk.StringVar(value="FIFO")
         ctk.CTkRadioButton(algo_frame, text="FIFO", variable=self.algo_var, value="FIFO").pack(side="left", padx=(0, 10))
         ctk.CTkRadioButton(algo_frame, text="LRU", variable=self.algo_var, value="LRU").pack(side="left", padx=(0, 10))
-        ctk.CTkRadioButton(algo_frame, text="Optimal", variable=self.algo_var, value="Optimal").pack(side="left")
         self.start_button = ctk.CTkButton(panel, text="Mulai / Reset Simulasi", font=FONTS["body_bold"], fg_color=COLORS["primary"], hover_color=COLORS["secondary"], command=self.start_simulation)
         self.start_button.grid(row=7, column=0, padx=20, pady=20, sticky="ew")
         ctk.CTkLabel(panel, text="Manajemen Proses", font=FONTS["heading"]).grid(row=8, column=0, padx=20, pady=10, sticky="w")
@@ -240,7 +239,7 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         except (ValueError, TypeError):
             messagebox.showerror("Error", "Input Ukuran Halaman dan Frame Fisik harus angka positif.")
             return
-        algo_map = {"FIFO": FIFO, "LRU": LRU, "Optimal": Optimal}
+        algo_map = {"FIFO": FIFO, "LRU": LRU}
         algorithm = algo_map[self.algo_var.get()](num_frames)
         self.physical_memory = PhysicalMemory(num_frames, page_size_kb * 1024)
         self.mmu = MemoryManagementUnit(self.physical_memory, algorithm)
@@ -331,9 +330,8 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         page_size_bytes = self.physical_memory.page_size
         for i, page_num in enumerate(ref_string):
             v_addr = page_num * page_size_bytes
-            future_refs = ref_string[i+1:]
             self._log(f"--> [Langkah {i+1}] Akses Halaman {page_num}", "info")
-            message, status = self.mmu.access_virtual_address(self.active_pid, v_addr, future_references=future_refs)
+            message, status = self.mmu.access_virtual_address(self.active_pid, v_addr)
             self._log(message, status if status else "error")
             if "Error" in message: break
             self.update_all_visuals()

@@ -5,7 +5,7 @@ Mengimplementasikan simulasi sistem manajemen memori virtual dengan paging
 """
 
 import math
-from core.replacement_algorithms import FIFO, LRU, Optimal
+from core.replacement_algorithms import FIFO, LRU
 
 class PageTableEntry:
     """
@@ -117,7 +117,6 @@ class MemoryManagementUnit:
         Args:
             pid: ID proses
             virtual_address: alamat virtual dalam byte
-            future_references: daftar referensi masa depan untuk algoritma optimal
         Return: (pesan_status, tipe_akses)
         """
         import time
@@ -125,7 +124,7 @@ class MemoryManagementUnit:
         
         page_size = self.physical_memory.page_size
         page_number = virtual_address // page_size
-        result = self.access_page(pid, page_number, future_references)
+        result = self.access_page(pid, page_number)
         
         end_time = time.time()
         execution_time = (end_time - start_time) * 1000  # Convert to milliseconds
@@ -134,13 +133,12 @@ class MemoryManagementUnit:
         
         return result
 
-    def access_page(self, pid, page_number, future_references=None):
+    def access_page(self, pid, page_number):
         """
         Logika inti akses halaman - menangani page hit dan page fault
         Args:
             pid: ID proses
             page_number: nomor halaman yang diakses
-            future_references: daftar referensi masa depan untuk algoritma optimal
         Return: (pesan_status, tipe_akses)
         """
         # Validasi proses dan halaman
@@ -171,7 +169,7 @@ class MemoryManagementUnit:
             return f"Page Fault! Frame kosong {free_frame_num} dialokasikan untuk halaman {page_number}.", "fault_free"
 
         # Kasus 2b: Tidak ada frame kosong - perlu penggantian halaman
-        victim_frame_num = self.replacement_algorithm.select_victim(future_references)
+        victim_frame_num = self.replacement_algorithm.select_victim()
         
         if victim_frame_num == -1:
             return "Error: Gagal memilih frame korban.", None
