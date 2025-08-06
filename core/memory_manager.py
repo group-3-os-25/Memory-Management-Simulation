@@ -5,7 +5,7 @@ Mengimplementasikan simulasi sistem manajemen memori virtual dengan paging
 """
 
 import math
-from core.replacement_algorithms import FIFO, LRU, Optimal
+from core.replacement_algorithms import FIFO, LRU
 
 class PageTableEntry:
     """
@@ -40,7 +40,7 @@ class PhysicalMemory:
     def __init__(self, num_frames, page_size):
         self.num_frames = num_frames
         self.page_size = page_size
-        self.frames = [None] * num_frames           # Isi setiap frame: (pid, page_number) atau None
+        self.frames = [None] * num_frames        # Isi setiap frame: (pid, page_number) atau None
         self.free_frames = list(range(num_frames))  # Daftar frame yang masih kosong
 
     def allocate_frame(self, pid, page_number):
@@ -79,9 +79,9 @@ class MemoryManagementUnit:
     def __init__(self, physical_memory, replacement_algorithm):
         self.physical_memory = physical_memory
         self.replacement_algorithm = replacement_algorithm
-        self.processes = {}                         # Daftar semua proses aktif
-        self.next_pid = 0                          # Counter untuk PID berikutnya
-        self.stats = {"hits": 0, "faults": 0}     # Statistik performa sistem
+        self.processes = {}                      # Daftar semua proses aktif
+        self.next_pid = 0                        # Counter untuk PID berikutnya
+        self.stats = {"hits": 0, "faults": 0}    # Statistik performa sistem
 
     def create_process(self, virtual_size, page_size):
         """
@@ -104,33 +104,24 @@ class MemoryManagementUnit:
             # Bebaskan semua frame yang dialokasikan untuk proses ini
             for page_entry in process.page_table:
                 if page_entry.valid:
-                    self.physical_memory.free_frame(page_entry.frame_number)
+                    # Penting: panggil page_removed di algoritma untuk update state internalnya
                     self.replacement_algorithm.page_removed(page_entry.frame_number)
+                    self.physical_memory.free_frame(page_entry.frame_number)
             del self.processes[pid]
             return True
         return False
 
-    def access_virtual_address(self, pid, virtual_address, future_references=None):
+    def access_virtual_address(self, pid, virtual_address):
         """
         Mengakses alamat virtual - mengkonversi ke nomor halaman dan memanggil access_page
-        Args:
-            pid: ID proses
-            virtual_address: alamat virtual dalam byte
-            future_references: daftar referensi masa depan untuk algoritma optimal
-        Return: (pesan_status, tipe_akses)
         """
         page_size = self.physical_memory.page_size
         page_number = virtual_address // page_size
-        return self.access_page(pid, page_number, future_references)
+        return self.access_page(pid, page_number)
 
-    def access_page(self, pid, page_number, future_references=None):
+    def access_page(self, pid, page_number):
         """
         Logika inti akses halaman - menangani page hit dan page fault
-        Args:
-            pid: ID proses
-            page_number: nomor halaman yang diakses
-            future_references: daftar referensi masa depan untuk algoritma optimal
-        Return: (pesan_status, tipe_akses)
         """
         # Validasi proses dan halaman
         if pid not in self.processes:
@@ -160,7 +151,7 @@ class MemoryManagementUnit:
             return f"Page Fault! Frame kosong {free_frame_num} dialokasikan untuk halaman {page_number}.", "fault_free"
 
         # Kasus 2b: Tidak ada frame kosong - perlu penggantian halaman
-        victim_frame_num = self.replacement_algorithm.select_victim(future_references)
+        victim_frame_num = self.replacement_algorithm.select_victim()
         
         if victim_frame_num == -1:
             return "Error: Gagal memilih frame korban.", None
@@ -168,7 +159,7 @@ class MemoryManagementUnit:
         # Ambil informasi halaman korban yang akan diganti
         victim_content = self.physical_memory.frames[victim_frame_num]
         if not victim_content:
-            return "Error: Frame korban kosong.", None
+            return "Error: Frame korban kosong secara tidak terduga.", None
             
         victim_pid, victim_page_number = victim_content
 
@@ -188,8 +179,8 @@ class MemoryManagementUnit:
         # Update algoritma penggantian
         self.replacement_algorithm.page_loaded(victim_frame_num, page_number)
         
-        return f"Page Fault! Halaman {victim_page_number} (P{victim_pid}) di frame {victim_frame_num} diganti dengan halaman {page_number} (P{pid}).", "fault_replace"
-        
+        return f"Page Fault! Halaman {victim_page_number} (P{victim_pid}) di frame {victim_frame_num} diganti oleh halaman {page_number} (P{pid}).", "fault_replace"
+    
     def get_stats(self):
         """Mengambil statistik performa sistem (hit ratio, jumlah hit/fault)"""
         total = self.stats["hits"] + self.stats["faults"]
@@ -204,6 +195,12 @@ class MemoryManagementUnit:
     def reset(self):
         """Reset sistem ke kondisi awal - hapus semua proses dan statistik"""
         self.stats = {"hits": 0, "faults": 0}
+        
+        # Reset algoritma penggantian terlebih dahulu
+        if self.replacement_algorithm:
+            self.replacement_algorithm.reset()
+
+        # Kemudian kosongkan memori fisik dan hapus proses
         pids = list(self.processes.keys())
         for pid in pids:
             process = self.processes[pid]
@@ -212,5 +209,3 @@ class MemoryManagementUnit:
                     self.physical_memory.free_frame(page_entry.frame_number)
             del self.processes[pid]
         self.next_pid = 0
-        if self.replacement_algorithm:
-            self.replacement_algorithm.reset()
