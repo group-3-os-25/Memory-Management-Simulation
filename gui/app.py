@@ -120,17 +120,19 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.phys_mem_frame.grid(row=0, column=1, rowspan=2, padx=(5,0), sticky="nswe")
 
     def update_all_visuals(self):
-        # --- PERUBAHAN: Mengisi data ke TIGA panel ---
         # Clear old views
         for item in self.page_table_view.get_children():
             self.page_table_view.delete(item)
-        for widget in self.vas_frame.winfo_children(): # Clear VAS Frame
+        for widget in self.vas_frame.winfo_children():
             widget.destroy()
         for widget in self.phys_mem_frame.winfo_children():
             widget.destroy()
             
-        if not self.mmu: return
+        if not self.mmu or not self.physical_memory: return
         
+        # Dapatkan ukuran halaman untuk perhitungan rentang VA
+        page_size_bytes = self.physical_memory.page_size
+
         # Update Page Table View & Virtual Address Space (VAS) View
         if self.active_pid in self.mmu.processes:
             process = self.mmu.processes[self.active_pid]
@@ -143,40 +145,50 @@ class VirtualMemorySimulatorApp(ctk.CTk):
                 tags = ("valid",) if entry.valid else ("invalid",)
                 self.page_table_view.insert("", "end", values=(i, frame_display, valid_display), tags=tags)
                 
+                # --- PERUBAHAN DI SINI: Menambahkan rentang VA pada blok ---
+                # Hitung rentang alamat virtual untuk halaman saat ini
+                start_addr = i * page_size_bytes
+                end_addr = start_addr + page_size_bytes - 1
+                va_range_text = f"VA: {start_addr}-{end_addr}"
+
                 # Data untuk VAS Blok
                 color = COLORS["primary"] if entry.valid else COLORS["frame_empty"]
-                text = f"Halaman {i}\n(Ke Frame {entry.frame_number})" if entry.valid else f"Halaman {i}\n(Di Disk)"
+                if entry.valid:
+                    text = f"Halaman {i}\n{va_range_text}\n(Ke Frame {entry.frame_number})"
+                else:
+                    text = f"Halaman {i}\n{va_range_text}\n(Di Disk)"
+                
                 page_frame = ctk.CTkFrame(self.vas_frame, fg_color=color, corner_radius=6)
                 label = ctk.CTkLabel(page_frame, text=text, font=FONTS["small"])
                 label.pack(expand=True, ipady=5)
                 page_frame.pack(pady=3, padx=5, fill="x")
 
         else: # Jika tidak ada proses aktif terpilih
-             self.vas_frame.configure(label_text="Ruang Alamat Virtual")
+            self.vas_frame.configure(label_text="Ruang Alamat Virtual")
 
         self.page_table_view.tag_configure("valid", foreground=COLORS["page_hit"])
         self.page_table_view.tag_configure("invalid", foreground=COLORS["text_secondary"])
 
         # Update Physical Memory View
-        if self.physical_memory:
-            free_frames = len(self.physical_memory.free_frames)
-            total_frames = self.physical_memory.num_frames
-            self.phys_mem_frame.configure(label_text=f"{total_frames - free_frames}/{total_frames} Frames Terisi")
+        free_frames = len(self.physical_memory.free_frames)
+        total_frames = self.physical_memory.num_frames
+        self.phys_mem_frame.configure(label_text=f"{total_frames - free_frames}/{total_frames} Frames Terisi")
+        
+        for i, content in enumerate(self.physical_memory.frames):
+            if content:
+                pid, page_num = content
+                # Menggunakan palet warna berbeda untuk setiap proses
+                color_index = pid % len(COLORS["PROCESS_COLORS"])
+                color = COLORS["PROCESS_COLORS"][color_index]
+                text = f"Frame {i}\n(P{pid}, Halaman {page_num})"
+            else:
+                color = COLORS["frame_empty"]
+                text = f"Frame {i}\n(Kosong)"
             
-            for i, content in enumerate(self.physical_memory.frames):
-                if content:
-                    pid, page_num = content
-                    color_index = pid % len(COLORS["PROCESS_COLORS"])
-                    color = COLORS["PROCESS_COLORS"][color_index]
-                    text = f"Frame {i}\n(P{pid}, Halaman {page_num})"
-                else:
-                    color = COLORS["frame_empty"]
-                    text = f"Frame {i}\n(Kosong)"
-                
-                frame_widget = ctk.CTkFrame(self.phys_mem_frame, fg_color=color, corner_radius=6)
-                label = ctk.CTkLabel(frame_widget, text=text, font=FONTS["small"])
-                label.pack(expand=True, ipady=10)
-                frame_widget.pack(pady=3, padx=5, fill="x")
+            frame_widget = ctk.CTkFrame(self.phys_mem_frame, fg_color=color, corner_radius=6)
+            label = ctk.CTkLabel(frame_widget, text=text, font=FONTS["small"])
+            label.pack(expand=True, ipady=10)
+            frame_widget.pack(pady=3, padx=5, fill="x")
                 
         # Update Stats
         stats = self.mmu.get_stats()
@@ -184,9 +196,6 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.faults_label.configure(text=f"Page Faults: {stats['faults']}")
         self.hit_ratio_label.configure(text=f"Hit Ratio: {stats['hit_ratio']:.2f}%")
 
-    # Sisa fungsi lainnya (create_log_panel, _log, start_simulation, create_process, dll.)
-    # tidak perlu diubah. Salin semua fungsi tersebut dari jawaban sebelumnya.
-    # ... (Salin semua fungsi lainnya dari create_log_panel sampai akhir kelas)
     def create_log_panel(self):
         panel = ctk.CTkFrame(self, corner_radius=10, fg_color=COLORS["foreground"], height=250)
         panel.grid(row=1, column=1, padx=10, pady=(0,10), sticky="nswe")
@@ -226,23 +235,31 @@ class VirtualMemorySimulatorApp(ctk.CTk):
     def start_simulation(self):
         try:
             num_frames = self.phys_frames_var.get()
-            page_size_kb = int(self.page_size_entry.get())
+            page_size_kb_text = self.page_size_entry.get()
+            if not page_size_kb_text:
+                messagebox.showerror("Error", "Ukuran Halaman harus diisi.")
+                return
+            page_size_kb = int(page_size_kb_text)
             if page_size_kb <= 0: raise ValueError
         except (ValueError, TypeError):
             messagebox.showerror("Error", "Input Ukuran Halaman dan Frame Fisik harus angka positif.")
             return
+        
         algo_map = {"FIFO": FIFO, "LRU": LRU, "Optimal": Optimal}
         algorithm = algo_map[self.algo_var.get()](num_frames)
         self.physical_memory = PhysicalMemory(num_frames, page_size_kb * 1024)
         self.mmu = MemoryManagementUnit(self.physical_memory, algorithm)
+        
         self.create_proc_button.configure(state="normal")
         self.active_pid = -1
         self.update_access_controls()
         self.update_process_list()
+        
         self.log_textbox.configure(state="normal")
         self.log_textbox.delete("1.0", "end")
         self.log_textbox.configure(state="disabled")
         self.setup_log_tags()
+        
         self._log("--- Simulasi Dimulai ---", "info")
         self._log(f"Memori: {num_frames} frames, Halaman: {page_size_kb}KB, Algoritma: {self.algo_var.get()}", "info")
         self.update_all_visuals()
@@ -256,6 +273,7 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         except (ValueError, TypeError):
             messagebox.showerror("Error", "Ukuran Halaman harus diisi.")
             return
+        
         pid = self.mmu.create_process(proc_size_bytes, page_size_bytes)
         self._log(f"Proses P{pid} dibuat dengan {num_pages} halaman.", "info")
         self.update_process_list()
@@ -264,15 +282,26 @@ class VirtualMemorySimulatorApp(ctk.CTk):
     def update_process_list(self):
         for widget in self.process_list_frame.winfo_children():
             widget.destroy()
+            
         if not self.mmu or not self.mmu.processes: return
+        
         sorted_pids = sorted(self.mmu.processes.keys())
         for pid in sorted_pids:
             proc_frame = ctk.CTkFrame(self.process_list_frame, fg_color="transparent")
             proc_frame.pack(fill="x", pady=2, padx=2)
-            button_color = COLORS["secondary"] if pid == self.active_pid else "transparent"
-            proc_button = ctk.CTkButton(proc_frame, text=f"Proses {pid}", fg_color=button_color, command=lambda p=pid: self.select_process(p))
+            
+            # Beri highlight pada proses yang aktif
+            is_active = (pid == self.active_pid)
+            button_color = COLORS["secondary"] if is_active else "transparent"
+            text_color = "white" if is_active else COLORS["text_secondary"]
+            
+            proc_button = ctk.CTkButton(proc_frame, text=f"Proses {pid}", 
+                                      fg_color=button_color, text_color=text_color,
+                                      command=lambda p=pid: self.select_process(p))
             proc_button.pack(side="left", fill="x", expand=True)
-            del_button = ctk.CTkButton(proc_frame, text="X", width=30, fg_color=COLORS["page_victim"], command=lambda p=pid: self.terminate_process(p))
+            
+            del_button = ctk.CTkButton(proc_frame, text="X", width=30, fg_color=COLORS["page_victim"], 
+                                     hover_color=COLORS["secondary"], command=lambda p=pid: self.terminate_process(p))
             del_button.pack(side="right", padx=(5,0))
 
     def select_process(self, pid):
@@ -298,14 +327,21 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         state = "normal" if self.active_pid != -1 else "disabled"
         self.access_button.configure(state=state)
         self.run_ref_button.configure(state=state)
+        self.addr_entry.configure(state=state)
+        self.ref_string_entry.configure(state=state)
 
     def access_memory(self):
         if self.active_pid == -1: return
         try:
-            v_addr = int(self.addr_entry.get())
+            v_addr_text = self.addr_entry.get()
+            if not v_addr_text:
+                messagebox.showerror("Input Error", "Alamat Virtual harus diisi.")
+                return
+            v_addr = int(v_addr_text)
         except (ValueError, TypeError):
             messagebox.showerror("Error", "Alamat Virtual harus angka.")
             return
+            
         self._log(f"--> P{self.active_pid} akses VA: {v_addr}", "info")
         message, status = self.mmu.access_virtual_address(self.active_pid, v_addr)
         self._log(message, status if status else "error")
@@ -313,22 +349,38 @@ class VirtualMemorySimulatorApp(ctk.CTk):
 
     def run_reference_string(self):
         if self.active_pid == -1: return
+        
+        ref_string_text = self.ref_string_entry.get()
+        if not ref_string_text:
+            messagebox.showerror("Input Error", "String Referensi harus diisi.")
+            return
+        
         try:
-            ref_string = [int(p) for p in self.ref_string_entry.get().replace(" ", "").split(',') if p]
+            ref_string = [int(p) for p in ref_string_text.replace(" ", "").split(',') if p]
         except (ValueError, TypeError):
             messagebox.showerror("Error", "Format String Referensi tidak valid.")
             return
+            
         self._log(f"--- Menjalankan String Referensi untuk P{self.active_pid} ---", "info")
+        
+        if not self.physical_memory: return
         page_size_bytes = self.physical_memory.page_size
+        
         for i, page_num in enumerate(ref_string):
             v_addr = page_num * page_size_bytes
+            # --- PERUBAHAN DI SINI: Menambahkan rentang VA pada log ---
+            v_addr_end = v_addr + page_size_bytes - 1
             future_refs = ref_string[i+1:]
-            self._log(f"--> [Langkah {i+1}] Akses Halaman {page_num}", "info")
+            
+            self._log(f"--> [Langkah {i+1}] Akses Halaman {page_num} (VA: {v_addr}-{v_addr_end})", "info")
             message, status = self.mmu.access_virtual_address(self.active_pid, v_addr, future_references=future_refs)
+            
             self._log(message, status if status else "error")
             if "Error" in message: break
+            
             self.update_all_visuals()
             self.update()
             self.after(200)
+            
         self.update_all_visuals()
         self._log("--- Eksekusi Selesai ---", "info")
