@@ -5,9 +5,11 @@ Menyediakan interface pengguna untuk berinteraksi dengan sistem manajemen memori
 """
 import customtkinter as ctk
 from tkinter import ttk, messagebox
+import time  # Import untuk mengukur waktu
+import tracemalloc  # Import untuk mengukur memori
 from .theme import COLORS, FONTS
 from core.memory_manager import PhysicalMemory, MemoryManagementUnit
-from core.replacement_algorithms import FIFO, LRU, Optimal
+from core.replacement_algorithms import FIFO, LRU
 
 class VirtualMemorySimulatorApp(ctk.CTk):
     def __init__(self):
@@ -33,33 +35,38 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.create_log_panel()
 
     def create_control_panel(self):
-        # ... (Tidak ada perubahan di fungsi ini, gunakan kode dari jawaban sebelumnya)
         panel = ctk.CTkFrame(self, corner_radius=10, fg_color=COLORS["foreground"])
         panel.grid(row=0, column=0, rowspan=2, padx=10, pady=10, sticky="nswe")
         panel.grid_columnconfigure(0, weight=1)
         panel.grid_rowconfigure(10, weight=1)
+
         ctk.CTkLabel(panel, text="Konfigurasi Sistem", font=FONTS["heading"]).grid(row=0, column=0, padx=20, pady=(20, 10), sticky="w")
+
         ctk.CTkLabel(panel, text="Ukuran Halaman (KB):", font=FONTS["body"]).grid(row=1, column=0, padx=20, sticky="w")
         self.page_size_entry = ctk.CTkEntry(panel, placeholder_text="Contoh: 4")
         self.page_size_entry.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
+
         ctk.CTkLabel(panel, text="Frame Fisik:", font=FONTS["body"]).grid(row=3, column=0, padx=20, sticky="w")
-        self.phys_frames_slider = ctk.CTkSlider(panel, from_=4, to=64, number_of_steps=60, variable=self.phys_frames_var, command=lambda v: self.phys_frames_label.configure(text=f"{int(v)}"))
-        self.phys_frames_slider.grid(row=4, column=0, padx=20, pady=(0, 5), sticky="ew")
+        self.phys_frames_slider = ctk.CTkSlider(panel, from_=3, to=64, number_of_steps=60, variable=self.phys_frames_var, command=lambda v: self.phys_frames_label.configure(text=f"{int(v)}"))
+        self.phys_frames_slider.grid(row=3, column=0, padx=20, pady=(0, 5), sticky="ew")
         self.phys_frames_label = ctk.CTkLabel(panel, text=f"{self.phys_frames_var.get()}", font=FONTS["body_bold"], text_color=COLORS["primary"])
         self.phys_frames_label.grid(row=3, column=0, padx=20, sticky="e")
+
         ctk.CTkLabel(panel, text="Algoritma Penggantian:", font=FONTS["body_bold"]).grid(row=5, column=0, padx=20, pady=(10, 5), sticky="w")
         algo_frame = ctk.CTkFrame(panel, fg_color="transparent")
         algo_frame.grid(row=6, column=0, padx=20, sticky="w")
         self.algo_var = ctk.StringVar(value="FIFO")
         ctk.CTkRadioButton(algo_frame, text="FIFO", variable=self.algo_var, value="FIFO").pack(side="left", padx=(0, 10))
         ctk.CTkRadioButton(algo_frame, text="LRU", variable=self.algo_var, value="LRU").pack(side="left", padx=(0, 10))
-        ctk.CTkRadioButton(algo_frame, text="Optimal", variable=self.algo_var, value="Optimal").pack(side="left")
+
         self.start_button = ctk.CTkButton(panel, text="Mulai / Reset Simulasi", font=FONTS["body_bold"], fg_color=COLORS["primary"], hover_color=COLORS["secondary"], command=self.start_simulation)
         self.start_button.grid(row=7, column=0, padx=20, pady=20, sticky="ew")
+
         ctk.CTkLabel(panel, text="Manajemen Proses", font=FONTS["heading"]).grid(row=8, column=0, padx=20, pady=10, sticky="w")
         proc_creation_frame = ctk.CTkFrame(panel, fg_color="transparent")
         proc_creation_frame.grid(row=9, column=0, padx=20, pady=(0,10), sticky="ew")
         proc_creation_frame.grid_columnconfigure(0, weight=1)
+        
         ctk.CTkLabel(proc_creation_frame, text="Page Virtual:", font=FONTS["body"]).grid(row=0, column=0, sticky="w")
         self.proc_pages_slider = ctk.CTkSlider(proc_creation_frame, from_=8, to=128, number_of_steps=120, variable=self.proc_pages_var, command=lambda v: self.proc_pages_label.configure(text=f"{int(v)}"))
         self.proc_pages_slider.grid(row=1, column=0, columnspan=2, pady=(0, 5), sticky="ew")
@@ -67,14 +74,18 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.proc_pages_label.grid(row=0, column=1, sticky="e")
         self.create_proc_button = ctk.CTkButton(proc_creation_frame, text="Buat Proses", command=self.create_process, state="disabled")
         self.create_proc_button.grid(row=2, column=0, columnspan=2, pady=5, sticky="ew")
+        
         self.process_list_frame = ctk.CTkScrollableFrame(panel, label_text="Daftar Proses", label_font=FONTS["body_bold"])
         self.process_list_frame.grid(row=10, column=0, padx=20, pady=10, sticky="nsew")
+
         ctk.CTkLabel(panel, text="Kontrol Proses Aktif", font=FONTS["heading"]).grid(row=11, column=0, padx=20, pady=10, sticky="w")
+        
         ctk.CTkLabel(panel, text="Alamat Virtual (byte):", font=FONTS["body"]).grid(row=12, column=0, padx=20, pady=(10, 0), sticky="w")
         self.addr_entry = ctk.CTkEntry(panel, placeholder_text="Contoh: 8192")
         self.addr_entry.grid(row=13, column=0, padx=20, sticky="ew")
         self.access_button = ctk.CTkButton(panel, text="Akses Alamat", command=self.access_memory, state="disabled")
         self.access_button.grid(row=14, column=0, padx=20, pady=5, sticky="ew")
+        
         ctk.CTkLabel(panel, text="String Referensi Halaman:", font=FONTS["body"]).grid(row=15, column=0, padx=20, pady=(10, 0), sticky="w")
         self.ref_string_entry = ctk.CTkEntry(panel, placeholder_text="Contoh: 0,1,2,3,0,1,4...")
         self.ref_string_entry.grid(row=16, column=0, padx=20, sticky="ew")
@@ -85,13 +96,11 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         panel = ctk.CTkFrame(self, fg_color="transparent")
         panel.grid(row=0, column=1, padx=10, pady=10, sticky="nswe")
         
-        # --- PERUBAHAN TATA LETAK ---
         panel.grid_columnconfigure(0, weight=2) # Kolom kiri untuk tabel dan VAS
         panel.grid_columnconfigure(1, weight=1) # Kolom kanan untuk RAM
         panel.grid_rowconfigure(0, weight=1) # Baris atas untuk Tabel
         panel.grid_rowconfigure(1, weight=1) # Baris bawah untuk VAS
 
-        # --- Panel Kiri Atas: Page Table ---
         ctk.CTkLabel(panel, text="Page Table (Proses Aktif)", font=FONTS["heading"]).grid(row=0, column=0, pady=(0,5), sticky="s")
         style = ttk.Style(self)
         style.theme_use("default")
@@ -110,16 +119,14 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.page_table_view.heading("Valid", text="Status")
         self.page_table_view.grid(row=0, column=0, sticky="nswe")
 
-        # --- Panel Kiri Bawah: Ruang Alamat Virtual (Blok) ---
         self.vas_frame = ctk.CTkScrollableFrame(panel, label_text="Ruang Alamat Virtual", label_font=FONTS["body_bold"], corner_radius=10, fg_color=COLORS["foreground"])
         self.vas_frame.grid(row=1, column=0, padx=(0,5), pady=(10,0), sticky="nswe")
 
-        # --- Panel Kanan: Memori Fisik ---
         ctk.CTkLabel(panel, text="Memori Fisik (RAM)", font=FONTS["heading"]).grid(row=0, column=1, pady=(0,10))
         self.phys_mem_frame = ctk.CTkScrollableFrame(panel, label_text="Frames", label_font=FONTS["body_bold"], corner_radius=10, fg_color=COLORS["foreground"])
         self.phys_mem_frame.grid(row=0, column=1, rowspan=2, padx=(5,0), sticky="nswe")
 
-    def update_all_visuals(self):
+    def update_all_visuals(self, clear_perf_metrics=False):
         # Clear old views
         for item in self.page_table_view.get_children():
             self.page_table_view.delete(item)
@@ -130,7 +137,6 @@ class VirtualMemorySimulatorApp(ctk.CTk):
             
         if not self.mmu or not self.physical_memory: return
         
-        # Dapatkan ukuran halaman untuk perhitungan rentang VA
         page_size_bytes = self.physical_memory.page_size
 
         # Update Page Table View & Virtual Address Space (VAS) View
@@ -139,13 +145,11 @@ class VirtualMemorySimulatorApp(ctk.CTk):
             self.vas_frame.configure(label_text=f"Ruang Alamat Virtual P{self.active_pid}")
             
             for i, entry in enumerate(process.page_table):
-                # Data untuk Tabel
                 frame_display = entry.frame_number if entry.valid else "-"
                 valid_display = "Valid" if entry.valid else "Invalid"
                 tags = ("valid",) if entry.valid else ("invalid",)
                 self.page_table_view.insert("", "end", values=(i, frame_display, valid_display), tags=tags)
                 
-                # --- PERUBAHAN DI SINI: Menambahkan rentang VA pada blok ---
                 # Hitung rentang alamat virtual untuk halaman saat ini
                 start_addr = i * page_size_bytes
                 end_addr = start_addr + page_size_bytes - 1
@@ -153,17 +157,14 @@ class VirtualMemorySimulatorApp(ctk.CTk):
 
                 # Data untuk VAS Blok
                 color = COLORS["primary"] if entry.valid else COLORS["frame_empty"]
-                if entry.valid:
-                    text = f"Halaman {i}\n{va_range_text}\n(Ke Frame {entry.frame_number})"
-                else:
-                    text = f"Halaman {i}\n{va_range_text}\n(Di Disk)"
+                text = f"Halaman {i}\n{va_range_text}\n"
+                text += f"(Ke Frame {entry.frame_number})" if entry.valid else "(Di Disk)"
                 
                 page_frame = ctk.CTkFrame(self.vas_frame, fg_color=color, corner_radius=6)
                 label = ctk.CTkLabel(page_frame, text=text, font=FONTS["small"])
                 label.pack(expand=True, ipady=5)
                 page_frame.pack(pady=3, padx=5, fill="x")
-
-        else: # Jika tidak ada proses aktif terpilih
+        else:
             self.vas_frame.configure(label_text="Ruang Alamat Virtual")
 
         self.page_table_view.tag_configure("valid", foreground=COLORS["page_hit"])
@@ -177,7 +178,6 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         for i, content in enumerate(self.physical_memory.frames):
             if content:
                 pid, page_num = content
-                # Menggunakan palet warna berbeda untuk setiap proses
                 color_index = pid % len(COLORS["PROCESS_COLORS"])
                 color = COLORS["PROCESS_COLORS"][color_index]
                 text = f"Frame {i}\n(P{pid}, Halaman {page_num})"
@@ -189,12 +189,18 @@ class VirtualMemorySimulatorApp(ctk.CTk):
             label = ctk.CTkLabel(frame_widget, text=text, font=FONTS["small"])
             label.pack(expand=True, ipady=10)
             frame_widget.pack(pady=3, padx=5, fill="x")
-                
+        
         # Update Stats
         stats = self.mmu.get_stats()
         self.hits_label.configure(text=f"Hits: {stats['hits']}")
         self.faults_label.configure(text=f"Page Faults: {stats['faults']}")
         self.hit_ratio_label.configure(text=f"Hit Ratio: {stats['hit_ratio']:.2f}%")
+        
+        # Reset metrik kinerja jika diminta (saat simulasi baru dimulai)
+        if clear_perf_metrics:
+            self.exec_time_label.configure(text="Waktu Eksekusi: -")
+            self.mem_usage_label.configure(text="Puncak Memori: -")
+            self.throughput_label.configure(text="Throughput: -")
 
     def create_log_panel(self):
         panel = ctk.CTkFrame(self, corner_radius=10, fg_color=COLORS["foreground"], height=250)
@@ -203,17 +209,28 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         panel.grid_columnconfigure(0, weight=3)
         panel.grid_columnconfigure(1, weight=1)
         panel.grid_rowconfigure(0, weight=1)
+        
         self.log_textbox = ctk.CTkTextbox(panel, font=FONTS["small"], state="disabled", wrap="word", border_width=0, fg_color=COLORS["foreground"])
         self.log_textbox.grid(row=0, column=0, padx=10, pady=10, sticky="nswe")
+        
         stats_frame = ctk.CTkFrame(panel, fg_color="transparent")
         stats_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nswe")
-        ctk.CTkLabel(stats_frame, text="Kinerja", font=FONTS["body_bold"]).pack(anchor="w")
+        
+        ctk.CTkLabel(stats_frame, text="Kinerja Simulasi", font=FONTS["body_bold"]).pack(anchor="w")
         self.hits_label = ctk.CTkLabel(stats_frame, text="Hits: 0", font=FONTS["body"])
         self.hits_label.pack(anchor="w")
         self.faults_label = ctk.CTkLabel(stats_frame, text="Page Faults: 0", font=FONTS["body"])
         self.faults_label.pack(anchor="w")
         self.hit_ratio_label = ctk.CTkLabel(stats_frame, text="Hit Ratio: 0.00%", font=FONTS["body"])
-        self.hit_ratio_label.pack(anchor="w")
+        self.hit_ratio_label.pack(anchor="w", pady=(0,10))
+
+        ctk.CTkLabel(stats_frame, text="Kinerja Eksekusi", font=FONTS["body_bold"]).pack(anchor="w")
+        self.exec_time_label = ctk.CTkLabel(stats_frame, text="Waktu Eksekusi: -", font=FONTS["body"])
+        self.exec_time_label.pack(anchor="w")
+        self.mem_usage_label = ctk.CTkLabel(stats_frame, text="Puncak Memori: -", font=FONTS["body"])
+        self.mem_usage_label.pack(anchor="w")
+        self.throughput_label = ctk.CTkLabel(stats_frame, text="Throughput: -", font=FONTS["body"])
+        self.throughput_label.pack(anchor="w")
 
     def _log(self, message, status=None):
         self.log_textbox.configure(state="normal")
@@ -245,8 +262,12 @@ class VirtualMemorySimulatorApp(ctk.CTk):
             messagebox.showerror("Error", "Input Ukuran Halaman dan Frame Fisik harus angka positif.")
             return
         
-        algo_map = {"FIFO": FIFO, "LRU": LRU, "Optimal": Optimal}
+        algo_map = {"FIFO": FIFO, "LRU": LRU}
         algorithm = algo_map[self.algo_var.get()](num_frames)
+        
+        if self.mmu:
+            self.mmu.reset()
+
         self.physical_memory = PhysicalMemory(num_frames, page_size_kb * 1024)
         self.mmu = MemoryManagementUnit(self.physical_memory, algorithm)
         
@@ -260,9 +281,9 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         self.log_textbox.configure(state="disabled")
         self.setup_log_tags()
         
-        self._log("--- Simulasi Dimulai ---", "info")
+        self._log("--- Simulasi Dimulai/Reset ---", "info")
         self._log(f"Memori: {num_frames} frames, Halaman: {page_size_kb}KB, Algoritma: {self.algo_var.get()}", "info")
-        self.update_all_visuals()
+        self.update_all_visuals(clear_perf_metrics=True)
 
     def create_process(self):
         if not self.mmu: return
@@ -290,7 +311,6 @@ class VirtualMemorySimulatorApp(ctk.CTk):
             proc_frame = ctk.CTkFrame(self.process_list_frame, fg_color="transparent")
             proc_frame.pack(fill="x", pady=2, padx=2)
             
-            # Beri highlight pada proses yang aktif
             is_active = (pid == self.active_pid)
             button_color = COLORS["secondary"] if is_active else "transparent"
             text_color = "white" if is_active else COLORS["text_secondary"]
@@ -301,7 +321,7 @@ class VirtualMemorySimulatorApp(ctk.CTk):
             proc_button.pack(side="left", fill="x", expand=True)
             
             del_button = ctk.CTkButton(proc_frame, text="X", width=30, fg_color=COLORS["page_victim"], 
-                                     hover_color=COLORS["secondary"], command=lambda p=pid: self.terminate_process(p))
+                                      hover_color=COLORS["secondary"], command=lambda p=pid: self.terminate_process(p))
             del_button.pack(side="right", padx=(5,0))
 
     def select_process(self, pid):
@@ -366,21 +386,42 @@ class VirtualMemorySimulatorApp(ctk.CTk):
         if not self.physical_memory: return
         page_size_bytes = self.physical_memory.page_size
         
+        # Mulai pengukuran
+        tracemalloc.start()
+        start_time = time.perf_counter()
+
         for i, page_num in enumerate(ref_string):
             v_addr = page_num * page_size_bytes
-            # --- PERUBAHAN DI SINI: Menambahkan rentang VA pada log ---
             v_addr_end = v_addr + page_size_bytes - 1
-            future_refs = ref_string[i+1:]
             
-            self._log(f"--> [Langkah {i+1}] Akses Halaman {page_num} (VA: {v_addr}-{v_addr_end})", "info")
-            message, status = self.mmu.access_virtual_address(self.active_pid, v_addr, future_references=future_refs)
+            self._log(f"--> [Langkah {i+1}] Akses Hal. {page_num} (VA: {v_addr}-{v_addr_end})", "info")
+            message, status = self.mmu.access_virtual_address(self.active_pid, v_addr)
             
             self._log(message, status if status else "error")
-            if "Error" in message: break
+            if "Error" in message: 
+                tracemalloc.stop() # Hentikan tracing jika ada error
+                break
             
+            # Update GUI di setiap langkah
             self.update_all_visuals()
-            self.update()
-            self.after(200)
+            self.update() 
+            self.after(100) # Delay kecil untuk visualisasi
             
+        # Selesai pengukuran
+        end_time = time.perf_counter()
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        duration_s = end_time - start_time
+        duration_ms = duration_s * 1000
+        peak_mem_mb = peak_mem / 1024 / 1024
+        throughput = len(ref_string) / duration_s if duration_s > 0 else 0
+        
+        # Tampilkan hasil pengukuran
+        self.exec_time_label.configure(text=f"Waktu Eksekusi: {duration_ms:.2f} ms")
+        self.mem_usage_label.configure(text=f"Puncak Memori: {peak_mem_mb:.4f} MB")
+        self.throughput_label.configure(text=f"Throughput: {throughput:.2f} ref/s")
+
         self.update_all_visuals()
         self._log("--- Eksekusi Selesai ---", "info")
+        self._log(f"Waktu: {duration_ms:.2f} ms, Memori Puncak: {peak_mem_mb:.4f} MB, Throughput: {throughput:.2f} ref/s", "info")
